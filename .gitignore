@@ -1,0 +1,8 @@
+env
+**/.ipynb
+**/__pycache__
+**/.DS_Store
+**/.idea
+**/.DS_Store
+**/__pycache__
+**/.pytest_cache
