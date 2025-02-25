@@ -2,7 +2,8 @@
 
 from abc import ABC, abstractmethod
 import numpy as np
-from typing import List, Callable
+from typing import List, Callable, Dict
+import copy
 
 
 class Histogram(ABC):
@@ -19,7 +20,20 @@ class Histogram(ABC):
         pass
 
 
-class ObservableHistogram(Histogram, np.ndarray):
+class BinIndexFinder:
+    def __init__(self, bin_edges):
+        self.bin_edges = bin_edges
+
+    def find_bin_index(self, observable_value: float) -> int:
+        """Finds the respective bin index for the given value of the observable."""
+        # Look for the right bin number
+        for bin_index in range(len(self.bin_edges) - 1):
+            if self.bin_edges[bin_index] <= observable_value < self.bin_edges[bin_index + 1]:
+                return bin_index
+        return -1
+
+
+class ObservableHistogram(Histogram, np.ndarray, BinIndexFinder):
     """
     One-dimensional histogram for a given observable.
     It behaves like a numpy array.
@@ -46,6 +60,9 @@ class ObservableHistogram(Histogram, np.ndarray):
         # Return the histogram
         return hist
 
+    def __init__(self, bin_edges, observable):
+        BinIndexFinder.__init__(self, bin_edges=bin_edges)
+
     def __array_finalize__(self, hist):
         if hist is None:
             return
@@ -58,7 +75,7 @@ class ObservableHistogram(Histogram, np.ndarray):
         # Calculate the observable
         obs_value = self.observable(event)
         # Find the bin index
-        bin_index = self._find_bin_index(observable_value=obs_value)
+        bin_index = self.find_bin_index(observable_value=obs_value)
         # Update the histogram if the observable is inside the histogram limits
         if 0 <= bin_index < len(self):
             self[bin_index] += 1
@@ -67,14 +84,76 @@ class ObservableHistogram(Histogram, np.ndarray):
         """Shallow copy of the current histogram."""
         return self.__new__(self.__class__, bin_edges=self.bin_edges, observable=self.observable)
 
-    def _find_bin_index(self, observable_value: float) -> int:
-        """Finds the respective bin index for the given value of the observable."""
-        # Look for the right bin number
-        for bin_index in range(len(self.bin_edges) - 1):
-            if self.bin_edges[bin_index] <= observable_value < self.bin_edges[bin_index + 1]:
-                return bin_index
-        # Makes sure the last bin is overflow
-        # if observable_value >= self.bin_edges[-1]:
-        #     return len(self) - 1
-        # Return -1 if the value is out of range
-        return -1
+
+class CorrelatedHist(Histogram, BinIndexFinder):
+    """..."""
+
+    def __init__(self, xobservable, yobservable, bin_edges):
+        super().__init__(bin_edges=bin_edges)
+        self.xobs = xobservable
+        self.yobs = yobservable
+        self.bin_sum = np.zeros(len(bin_edges) - 1)
+
+    def update_hist(self, event):
+        xobs_value = self.xobs(event)
+        yobs_value = self.yobs(event)
+        bin_index = self.find_bin_index(xobs_value)
+        if 0 <= bin_index < len(self.bin_sum):
+            self.bin_sum[bin_index] += yobs_value
+
+    def __copy__(self):
+        return self.__class__(xobservable=self.xobs, yobservable=self.yobs, bin_edges=self.bin_edges)
+
+    def merge_hist(self, hist):
+        self.bin_sum += hist.bin_sum
+
+
+class HistogramCompound(Histogram):
+    """Stores a set of Histogram objects that must be updated."""
+
+    def __init__(self, histograms: Dict[str, Histogram]):
+        # Stores a dictionary whose values represent histogram, and the key is a name used to identify them
+        self._hist_dict = histograms
+
+    def update_hist(self, event):
+        """Updates all the histograms with the given event."""
+        for hist_name in self._hist_dict:
+            self._hist_dict[hist_name].update_hist(event=event)
+
+    def get_hist(self, hist_name: str):
+        """Returns the Histogram object associated with the key 'hist_name'"""
+        if hist_name in self._hist_dict:
+            return self._hist_dict[hist_name]
+
+    def __copy__(self):
+        """Returns a shallow clone of all histograms."""
+        clone_dict = {hist_name: copy.copy(hist) for hist_name, hist in self._hist_dict.items()}
+        # Creates a container with now the cloned hists
+        return self.__class__(histograms=clone_dict)
+
+
+class AverageDist(Histogram):
+
+    def __init__(self, bin_edges: List[float], xobservable: Callable, yobservable: Callable):
+        self.xobs = xobservable
+        self.yobs = yobservable
+        self.edges = bin_edges
+        self.yhist = np.zeros(len(bin_edges) - 1)
+        self.xhist = ObservableHistogram(bin_edges=bin_edges, observable=xobservable)
+
+    def update_hist(self, event):
+        xobs_value = self.xobs(event)
+        yobs_value = self.yobs(event)
+        self.xhist.update_hist(event)
+        bin_index = self.xhist.find_bin_index(xobs_value)
+        self.yhist[bin_index] += yobs_value
+
+    def __copy__(self):
+        return self.__class__(self.edges, self.xobs, self.yobs)
+
+    def merge_hist(self, hist):
+        self.yhist += hist.yhist
+        self.xhist += hist.xhist
+
+    def get_average(self):
+        return self.yhist / self.xhist

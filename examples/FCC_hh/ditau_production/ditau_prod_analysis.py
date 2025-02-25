@@ -52,7 +52,7 @@ if __name__ == "__main__":
             # Adds the bin distribution to the term distribution
             # Note: the distribution is corrected by the weight, which means that
             #       the final distribution is in pb
-            terms_dists[term] += (cross_section / num_events) * bin_mtautau_dist
+            terms_dists[term] += (2 * cross_section / num_events) * bin_mtautau_dist
 
     # Saves the distribution in a .json file
     with open(f"{folder_path}/mU1_4TeV.json", "w") as file_:

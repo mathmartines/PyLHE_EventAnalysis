@@ -42,7 +42,7 @@ class EventLoop:
         # Store the histogram template to be used for constructing histograms
         self._hist_template = histogram_template
 
-    def analyse_events(self, filename: str, event_analysis: EventAnalysis) -> Histogram:
+    def analyse_events(self, filename: str, event_analysis: EventAnalysis):
         """
         Runs the analysis on events from the .lhe file and returns a histogram
         constructed from the selected events.
