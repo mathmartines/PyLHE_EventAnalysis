@@ -47,8 +47,8 @@ if __name__ == "__main__":
     # Creates the EventAnalysis object - handles the selection of the event
     event_analyses = {
         "no_cut": EventAnalysis(selection_cuts=[]),
-        "MET_MLL_1": EventAnalysis(selection_cuts=[CutRatioMETMLL(1)]),
-        "MET_MLL_2": EventAnalysis(selection_cuts=[CutRatioMETMLL(2)])
+        "MET_MLL_1": EventAnalysis(selection_cuts=[CutRatioMETMLL(0.1)]),
+        "MET_MLL_2": EventAnalysis(selection_cuts=[CutRatioMETMLL(0.2)])
     }
 
     # Creates the EventLoop object - iterates over all the events in a .lhe file and books the histogram
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
         print(cross_section)
         print(met_mll_sum)
-        print(event_count)
+        print(bin_hist["MET_MLL_2"].get_hist("MLL"))
 
     # Invariant mass dists
     with open(f"{folder_path}/WW_MLL.json", "w") as file_:
