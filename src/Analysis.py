@@ -1,6 +1,6 @@
 """Simple classes responsible for iterating over events and performing event-by-event analysis."""
 
-from typing import List, Callable
+from typing import List, Callable, Dict
 from PyLHE_EventAnalysis.src.Histogram import Histogram
 import copy
 
@@ -42,33 +42,37 @@ class EventLoop:
         # Store the histogram template to be used for constructing histograms
         self._hist_template = histogram_template
 
-    def analyse_events(self, filename: str, event_analysis: EventAnalysis):
+    def analyse_events(self, filename: str, event_analyses: Dict[str, EventAnalysis]):
         """
         Runs the analysis on events from the .lhe file and returns a histogram
         constructed from the selected events.
 
         :param filename: Path to the .lhe file storing the events.
-        :param event_analysis: EventAnalysis object that handles event selection.
+        :param event_analyses: Dictionary with all the diferent analysis that must be applied to the
+                               list of events.
 
-        :return: A histogram constructed from events selected by the event_analysis object.
+        :return: Dict with the booked histogram for each analysis.
         """
         print(f"Reading events from file: {filename}")
 
         # Count the number of processed events
         evt_number = 0
-        # Initialize an empty histogram to store the selected events
-        hist = copy.copy(self._hist_template)
+        # Initialize an empty for each of the analysis
+        analyses_hist = {analysis_name: copy.copy(self._hist_template) for analysis_name in event_analyses}
 
         # Iterate over events in the file
         for event in self._file_reader(filename):
             if evt_number > 0 and evt_number % 10000 == 0:
                 print(f"INFO: Processed {evt_number} events")
-            # Launch the analysis on the event
-            passed_cuts = event_analysis.launch_analysis(event=event)
-            # Update the histogram if the event passes selection cuts
-            if passed_cuts:
-                hist.update_hist(event=event)
+            # Iterates over all the analyses
+            for analysis_name, event_analysis in event_analyses.items():
+                # Launch the analysis on the event
+                passed_cuts = event_analysis.launch_analysis(event=event)
+                # Update the histogram if the event passes selection cuts
+                if passed_cuts:
+                    analyses_hist[analysis_name].update_hist(event=event)
             # Increment event counter
             evt_number += 1
 
-        return hist
+        # Returns the dictionary with booked histogram for each analysis
+        return analyses_hist

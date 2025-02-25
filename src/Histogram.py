@@ -131,29 +131,3 @@ class HistogramCompound(Histogram):
         # Creates a container with now the cloned hists
         return self.__class__(histograms=clone_dict)
 
-
-class AverageDist(Histogram):
-
-    def __init__(self, bin_edges: List[float], xobservable: Callable, yobservable: Callable):
-        self.xobs = xobservable
-        self.yobs = yobservable
-        self.edges = bin_edges
-        self.yhist = np.zeros(len(bin_edges) - 1)
-        self.xhist = ObservableHistogram(bin_edges=bin_edges, observable=xobservable)
-
-    def update_hist(self, event):
-        xobs_value = self.xobs(event)
-        yobs_value = self.yobs(event)
-        self.xhist.update_hist(event)
-        bin_index = self.xhist.find_bin_index(xobs_value)
-        self.yhist[bin_index] += yobs_value
-
-    def __copy__(self):
-        return self.__class__(self.edges, self.xobs, self.yobs)
-
-    def merge_hist(self, hist):
-        self.yhist += hist.yhist
-        self.xhist += hist.xhist
-
-    def get_average(self):
-        return self.yhist / self.xhist
